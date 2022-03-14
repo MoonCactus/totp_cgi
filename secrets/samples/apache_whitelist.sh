@@ -1,7 +1,13 @@
 #!/bin/bash
 set -feu -o pipefail
 # Helper to allow/deny access based on IP.
-# You need to make www-data a sudoer on this script.
+# You need to make www-data a sudoer on this script and to include this
+# file from your /etc/apache2/site-enabled web site configuration, with
+#   Include /usr/lib/cgi-bin/toctoc/secrets/apacheRequire.cfg
+
+
+# Make it less dependent on the context (and so "reset" works when called from cron each night)
+export PATH=/usr/local/bin:/usr/bin:/bin
 
 APACHE_INCLUDE="/usr/lib/cgi-bin/toctoc/secrets/apacheAllow.cfg"     # old syntax: 'Allow from '
 APACHE_INCLUDE2="/usr/lib/cgi-bin/toctoc/secrets/apacheRequire.cfg"  # new syntax: 'Require ip '

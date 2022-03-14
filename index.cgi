@@ -1,21 +1,16 @@
 #!/bin/bash -feu
-# Self-contained TOTP tool. Helps check and generate accounts on a CGI-enabled HTTP server.
-# You will probably want to set WHITELISTER at least in /etc/totp_cgi.conf to do something
-# when a user successfully uathneticates
+
+# Self-contained TOTP tool. Helps generate and check accounts with help from a CGI-enabled HTTP server.
+# You probably want to set WHITELISTER in (./secrets|/etc)/totp_cgi.conf  so as to do something when
+# a user successfully authenticates.
 
 set -o pipefail -eE -o functrace
 
-CONFIGFILE='/etc/totp_cgi.conf'
-
 # CGI bash script to check a TOTOP
-# To get an interactive prompt you can call it as
-#    /cgi-bin/check.sh
-# otherwise, call it directly as
-#    /cgi-bin/check.sh?username=yoMama&totpcode=405719
 #
 # To create a new user you must be within the ADMINS (see /etc/totp_cgi.conf, default is username 'admin'),
 # then you must use this URL to access to the service (even if that's not your name, it will only show an
-# additional field to allow you to create a new user)
+# additional field to allow you to create a new user). Or just add it to your your footer.
 #    http://127.0.0.1/cgi/totp/index.cgi?admin
 #
 # Nb: you can create a time-limited, priviledged right to see the current code in clear
@@ -26,13 +21,17 @@ get_config()
 {
   key="$1"
   default="$2"
-  value=$(sed -n "s/\s*$key\s*=\s*//p" "$CONFIGFILE" 2>/dev/null)
+  value=$(sed -n "s/\s*$key\s*=\s*//p" "$CONFIGFILE" 2>/dev/null || true)
   [[ -z "$value" ]] && value="$default"
   echo "$value"
 }
 
 CTX='start'
 WORKDIR="$(dirname $(realpath $0))"
+
+CONFIGFILE="$WORKDIR/secrets/totp_cgi.conf"
+[[ -f "$CONFIGFILE" ]] || CONFIGFILE='/etc/totp_cgi.conf'
+
 
 # Main configuration, with default parameters
 HTTPS_ONLY=$(get_config HTTPS_ONLY 'y')         # refuse to run if not HTTPS
@@ -58,8 +57,7 @@ XHEADER=$(get_config XHEADER "<style type="text/css">
   .header          { border-bottom:1px solid #EEE; padding-bottom:8px;}
   .footer          { border-top:1px solid #EEE; padding-top:8px; font-size:0.8em; }
   #qrcode          { margin:1em; }
-</style>
-")                                              # inserted in every generated html page (to hold CSS or JS, eg.)
+</style>")                                      # inserted in every generated html page (to hold CSS or JS, eg.)
 
 
 ################### Internationalization
@@ -77,6 +75,33 @@ i18n()
   [[ -z "$r" ]] && r="${key}"
   printf "$r" "$@"
 }
+
+
+################### Panel: Dump HTTP head
+
+http_head()  # title
+{
+  cat << EOF
+<html>
+<head>
+  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+  <meta name="ROBOTS" content="noindex">
+EOF
+  [[ ${XHEADER} ]] && sed 's/^/  /' <<< "${XHEADER}"
+  [[ $# -ge 1 ]] && sed 's/^/  /' <<< "$@"
+  printf "</head>\n<body>\n"
+}
+
+http_body()
+{
+  cat
+}
+
+http_tail()
+{
+  printf "</body>\n</html>\n"
+}
+
 
 ################### Panel: Show error
 
@@ -97,21 +122,14 @@ error()
   context=
   [[ $httpcode =~ ^5 ]] && context="ctx:$CTX"
 
-  cat << EOT
-<html>
-<head>
-  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-  <title>$httpcode</title>$redirect
-  ${XHEADER}
-</head>
-<body>
+  http_head "<title>$httpcode</title>$redirect"
+  http_body << EOT
   <h1>$(i18n httperror $httpcode)</h1>
   <div>$MSG</div>
   <div class='small light'>$context</div>
   <div id="footer">$(i18n footer)</div>
-</body>
-</html>
 EOT
+  http_tail
 	exit 0
 }
 
@@ -129,14 +147,8 @@ show_form()
   printf "Status: 200 OK\r\n"
   printf "Content-type:text/html\r\n\r\n"
 
-  cat << EOF
-<html>
-<head>
-  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-  <meta name="ROBOTS" content="noindex">
-  ${XHEADER}
-</head>
-<body>
+  http_head "<title>$(i18n titlemain)</title>"
+  http_body << EOT
   $(i18n header)
   <form action="">
     <div class='hilite'>$@</div>
@@ -155,12 +167,12 @@ show_form()
     <input type="submit" value="$(i18n submit)">
   </form>
   <div id="footer">$(i18n footer YEEES)</div>
-</body>
-</html>
-EOF
+EOT
+  http_tail
   trap '' EXIT
   exit 0
 }
+
 
 ################### Panel: Show success
 
@@ -171,21 +183,13 @@ show_success()
   printf "Status: 200 OK\r\n"
   printf "Content-type:text/html\r\n\r\n"
 
-  cat << EOT
-<html>
-<head>
-  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-  <meta name="ROBOTS" content="noindex">
-  <title>$(i18n titlesecured)</title>
-  ${XHEADER}
-</head>
-<body>
+  http_head "<title>$(i18n titlesecured)</title>"
+  http_body << EOT
   $(i18n header)
   <div>$(i18n goodcode "$REMOTE_ADDR")</div>
   <div id="footer">$(i18n footer)</div>
-</body>
-</html>
 EOT
+  http_tail
 }
 
 
@@ -213,15 +217,8 @@ create_account()
   printf "Status: 200 OK\r\n"
   printf "Content-type:text/html\r\n\r\n"
 
-  cat << EOT
-<html>
-<head>
-<title$(i18n newtitle)</title>
-  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-  <meta name="ROBOTS" content="noindex">
-  ${XHEADER}
-</head>
-<body>
+  http_head "<title$(i18n newtitle)</title>"
+  http_body << EOT
   $(i18n commontitle)
   <div class='small'>
     $(i18n goodcode "$REMOTE_ADDR")
@@ -240,14 +237,11 @@ create_account()
     $(i18n newcheck)
   </div>
 
-    <div id="footer">$(i18n footer)</div>
-</body>
-</html>
+  <div id="footer">$(i18n footer)</div>
 EOT
-
+  http_tail
   trap '' EXIT
 }
-
 
 
 ################### Main
@@ -294,7 +288,7 @@ sleep 1 # Pretty simple way to mitigate brute force attacks
 CTX='reveal'
 
 if [[ -n "$REVEALTIMEOUT" ]] && [[ "$USERCODE" =~ ^[A-Za-z0-9_]+$ ]]; then
-  fk="$WORKDIR/secrets/keycodes/$USERCODE"
+  fk="$WORKDIR/secrets/keycodes/${USERNAME}_${USERCODE}"
   if [[ -f "$fk" ]]; then
     if (( $(date +%s) - $(date +%s -r "$fk") > "$REVEALTIMEOUT" )); then
       show_form $(i18n keyctmo)
@@ -325,8 +319,12 @@ fi
 
 if [[ -n "$WHITELISTER" ]]; then
   CTX="whitelist:$WHITELISTER"
-  if ! $WHITELISTER allow "$REMOTE_ADDR" "$USERNAME" >& /dev/null; then
-    error 501 $(i18n errwhitelist)
+  set +e
+  reply=$($WHITELISTER allow "$REMOTE_ADDR" "$USERNAME" 2>&1)
+  errno=$?
+  set -e
+  if [[ $errno != 0 ]]; then
+    error 501 "$(i18n errwhitelist)<pre>$reply</pre>"
   fi
 fi
 
@@ -353,8 +351,9 @@ cat << 'EOT' &>/dev/null
 
 #### I18N:fr
 
+titlemain     Jeton d'accès requis
 header        <h1 class='header'>Jeton d'accès</h1>
-footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a></div>
+footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a> / <a href="?admin">admin</a></div>
 
 username      Votre identifiant
 htcode6       Votre code à 6 chiffres<div class='small'>(ou mot-clé spécial)</div>
@@ -393,8 +392,9 @@ newcheck      Puis testez-le <a href='?'>ici</a>.
 
 #### I18N:en  (must be last)
 
+titlemain     Security token needed
 header        <h1 class='header'>Access token</h1>
-footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a></div>
+footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a> / <a href="?admin">admin</a></div>
 username      Your identifier
 htcode6       Your 6-digit code<div class='small'>(or special keyword)</div>
 submit        Test
