@@ -41,7 +41,7 @@ ADMINS=$(get_config ADMINS admin)               # comma-separated list of users 
 
 # White-listing administrative tool. Write it so it accepts the following arguments: allow <IP> <username> | deny <IP> <username> | reset
 # Warning: this is run without quoting, so that "sudo mytool" really will be executed as sudo. Make sure you take care of whitespaces etc.
-WHITELISTER=$(get_config WHITELISTER "")        # eg. $WORKDIR/secrets/whitelister.sh
+WHITELISTER=$(get_config WHITELISTER "")        # eg. $WORKDIR/secrets/whitelister.sh, will be called with these arguments: 'allow' $REMOTEIP $USERNAME
 
 # Generation data
 FQDN=$(get_config FQDN "totp.tecrd.com")        # TOTP property:  fully qualified domain name

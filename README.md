@@ -48,7 +48,7 @@ that will be called when an authentication is sucessful. The command that the sc
 $WHITELISTER allow "$REMOTE_ADDR" "$USERNAME"
 ```
 
-Please note that it runs seemingly unsafely **without quoting** to make life easier.
+Please note that it gets run arguably unsafely **without quoting** to make life easier.
 Hence, setting `WHITELISTER=sudo /usr/local/bin/firewall_allow.sh` will work well when
 `www-data` is a sudoer for the respective command :
 
@@ -56,14 +56,20 @@ Hence, setting `WHITELISTER=sudo /usr/local/bin/firewall_allow.sh` will work wel
 www-data ALL=(ALL) NOPASSWD: /usr/local/bin/firewall_allow.sh
 ```
 
-See `samples/apache_whitelist.sh` for an example where we manage an Apache file to include.
+Two small utilities are provided as examples:
+
+  * `samples/apache_whitelist.sh` to manage an Apache IP-based allow/deny file to include
+  * `samples/timed_login.sh` to manage a user and time-based login file
 
 
 #### Post-installation ####
 
-Do not forget to delete or change user `admin` after you use it to create new accounts.
-To get the current TOTP code for this default user, either run `secrets/show_key.sh`,
-or use a *revealing key code* as described below.
+Do not forget to delete or change
+  * user `admin` after you use it to create new accounts.
+  * the corresponding revealing key secrets/keycodes/admin_reMOVe
+
+To get the current TOTP code for this default user, you can use the `admin_reMOVe` revealing
+key as described below or run `secrets/show_key.sh`.
 
 
 ### Administration ###
@@ -84,7 +90,7 @@ It will be shown only once, so you need the user to see it.
 Try to avoid screen copies since the QR code shall be forgotten once recorded to avoid identity theft.
 Better generate the account when the user is with you and ready to scan the code on your screen.
 
-#### Revealing key codes #### 
+#### Revealing keys #### 
 
 This feature implements regular, but time-limited password authentication.
 
@@ -114,7 +120,41 @@ The script knows the language based on the provided client navigator settings.
 I am open to pull requests for more langages, and/but I want to keep it as one script !
 
 
-### nginx support (example) ###
+### Web server configuration ###
+
+Here are example of configurations. YMMV.
+
+#### Apache2 (example) ####
+
+If the CGI script is saved in `/usr/lib/cgi-bin/totp`, then
+create `/etc/apache2/conf-available/serve-cgi-bin.conf`:
+
+
+```
+<IfModule mod_alias.c>
+	<IfModule mod_cgi.c>
+		Define ENABLE_USR_LIB_CGI_BIN
+	</IfModule>
+
+	<IfModule mod_cgid.c>
+		Define ENABLE_USR_LIB_CGI_BIN
+	</IfModule>
+
+	<IfDefine ENABLE_USR_LIB_CGI_BIN>
+		ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/
+		<Directory "/usr/lib/cgi-bin">
+			AllowOverride None
+			Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
+			Require all granted
+		</Directory>
+	</IfDefine>
+</IfModule>
+```
+
+Then `a2enconf serve-cgi-bin.conf`, restart apache and head to https://your.website.com/cgi-bin/totp
+
+
+#### nginx and fcgiwrap ####
 
 Install `nginx` and `fcgi`:
 
@@ -127,6 +167,7 @@ can add a block like this *within* the `/etc/nginx/sites-enabled` target:
 ```
 	location /totp_cgi {
 		gzip off;
+		try_files $uri $uri/;
 		fastcgi_index index.cgi;
 		alias /home/jeremie/workspace/;
 		fastcgi_pass unix:/var/run/fcgiwrap.socket;
@@ -138,11 +179,4 @@ can add a block like this *within* the `/etc/nginx/sites-enabled` target:
 	}
 ```
 
-Then test and restart nginx:
-
-```
-	service nginx stop
-	nginx -t  # then <control-C>
-	service nginx restart
-```
-
+Then restart nginx and open http://your.website.com/totp_cgi/

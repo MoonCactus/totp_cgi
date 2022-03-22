@@ -1,8 +1,24 @@
 #!/bin/bash -feu
-user=${1-admin}
-echo "Showing current key for $user:"
+keyfile=${1-secrets/admin.key}
+if [[ "$keyfile" =~ (^$|-h$|--help$) ]]; then
+	printf "$(basename $0) username.key\nKeep showing current TOTP key for the given user key file (eg. secrets/admin.key)\n"
+	exit 1
+fi
+if [[ ! -f "$keyfile" ]]; then
+	printf "Failed to find $keyfile; check your paths.\n"
+	exit 1
+fi
+
+echo "Showing current TOTP for '$keyfile':"
+prevk=
 while :
 do
-	oathtool -b --totp $(cat "$user.key" | tr -d "\n")
+	k=$(oathtool -b --totp $(cat "$keyfile" | tr -d "\n"))
+	if [[ "$k" = "$prevk" ]]; then
+		printf "."
+	else
+		printf "\n$k  "
+		prevk="$k"
+	fi
 	sleep 1
 done
