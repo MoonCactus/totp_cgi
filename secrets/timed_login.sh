@@ -94,9 +94,9 @@ while [[ $# -gt 0 ]]; do
 		else
 			if [[ "$action" = "allow" ]]; then
 				ip=''; [[ "${1-}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && ip="$1" && shift
-				new=$(grep -v ":$uid$" "$dbfile"; echo "$(date +%s):$ip:$uid")
+				new=$(grep -v ":$uid$" "$dbfile"; echo "$(date +%s):$ip:$uid" || true)
 			elif [[ "$action" = "deny" ]]; then
-				new=$(grep -v ":$uid$" "$dbfile")
+				new=$(grep -v ":$uid$" "$dbfile" || true)
 			else
 				fail "Bad parameter or unknown action at or around '$action' parameter"
 			fi

@@ -66,7 +66,7 @@ Two small utilities are provided as examples:
 
 Do not forget to delete or change
   * user `admin` after you use it to create new accounts.
-  * the corresponding revealing key secrets/keycodes/admin_reMOVe
+  * the corresponding revealing key secrets/reveal/admin_reMOVe
 
 To get the current TOTP code for this default user, you can use the `admin_reMOVe` revealing
 key as described below or run `secrets/show_key.sh`.
@@ -101,7 +101,7 @@ register (like a guest), or for someone who lost his phone, or did not install t
 6-letter *keycodes* make it possible to see the current TOTP code for a given account,
 and for longer than 30 seconds.
 
-How ? Just `touch secrets/keycodes/guest_SIXsix` to create password `SIXsix` for user `guest`.
+How ? Just `touch secrets/reveal/guest_SIXsix` to create password `SIXsix` for user `guest`.
 It can be used *in place of the TOTP* code for the interface to reveal the actual TOTP code.
 User `guest` will not even need to know or have the original subscription QR code.
 

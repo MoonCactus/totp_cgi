@@ -2,7 +2,7 @@
 
 # Self-contained TOTP tool. Helps generate and check accounts with help from a CGI-enabled HTTP server.
 # You probably want to set WHITELISTER in (./secrets|/etc)/totp_cgi.conf  so as to do something when
-# a user successfully authenticates.
+# a user successfully authenticates, eg. './secrets/timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./secrets/nginx_allow.cfg'
 
 set -o pipefail -eE -o functrace
 
@@ -14,7 +14,7 @@ set -o pipefail -eE -o functrace
 #    http://127.0.0.1/cgi/totp/index.cgi?admin
 #
 # Nb: you can create a time-limited, priviledged right to see the current code in clear
-# by eg. "touch [-t 202206011155] secrets/keycodes/AddMIN", then get the TOTP code
+# by eg. "touch [-t 202206011155] secrets/reveal/AddMIN", then get the TOTP code
 # by typing `AddMIN` keyword in the 6-figure code.
 
 get_config()
@@ -39,9 +39,12 @@ USERNAME=$(get_config USERNAME '')              # default username when set (eg 
 REVEALTIMEOUT=$(get_config REVEALTIMEOUT 300)   # expriring delay for admin reveal codes (5 minutes). Zero to disable.
 ADMINS=$(get_config ADMINS admin)               # comma-separated list of users who can create other users
 
-# White-listing administrative tool. Write it so it accepts the following arguments: allow <username> <IP>
-# Warning: this is run without quoting, so that "sudo mytool" really will be executed as sudo. Make sure you take care of whitespaces etc.
-WHITELISTER=$(get_config WHITELISTER "")        # eg. $WORKDIR/secrets/whitelister.sh, will be called with these arguments: 'allow' $USERNAME $REMOTEIP
+# White-listing administrative tool.
+# Warning: it gets run by "eval" so that, eg. "sudo mytool" really is executed as sudo.
+# Tokens %REMOTEIP% and %USERNAME% are replaced by their (sanitized) values before the call.
+# In the example below, root would also need to watch and run 'nginx -s reload' (eg. here with a "chmod a+s" root-owned nginx_restart.sh script)
+WHITELISTER=$(get_config WHITELISTER "cd $WORKDIR/secrets && ./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./nginx_allow.cfg && sudo $WORKDIR/secrets/nginx_restart.sh")
+DEBUG=$(get_config DEBUG 'no')                  # yes to debug the exact call to the white listing tool
 
 # Generation data
 FQDN=$(get_config FQDN "totp.tecrd.com")        # TOTP property:  fully qualified domain name
@@ -211,7 +214,7 @@ create_account()
   CSSIMG=$(printf '<img width=%dpx style="image-rendering:pixelated;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
 
   CTX='saveaccount'
-  echo "$SECRET" > "$WORKDIR/secrets/$NEWUSER.key" || error 500 "$(i18n errnewsave $NEWUSER)"
+  echo "$SECRET" > "$WORKDIR/secrets/totp/$NEWUSER.key" || error 500 "$(i18n errnewsave $NEWUSER)"
 
   CTX='shownewaccount'
   printf "Status: 200 OK\r\n"
@@ -288,7 +291,7 @@ sleep 1 # Pretty simple way to mitigate brute force attacks
 CTX='reveal'
 
 if [[ -n "$REVEALTIMEOUT" ]] && [[ "$USERCODE" =~ ^[A-Za-z0-9_]+$ ]]; then
-  fk="$WORKDIR/secrets/keycodes/${USERNAME}_${USERCODE}"
+  fk="$WORKDIR/secrets/reveal/${USERNAME}_${USERCODE}"
   if [[ -f "$fk" ]]; then
     if (( $(date +%s) - $(date +%s -r "$fk") > "$REVEALTIMEOUT" )); then
       show_form $(i18n keyctmo)
@@ -304,7 +307,7 @@ CTX='check'
 
 [[ "$USERCODE" =~ ^[0-9_]{6}$ ]] || error 400 $(i18n illegalcode)
 
-ukey="$WORKDIR/secrets/$USERNAME.key"
+ukey="$WORKDIR/secrets/totp/$USERNAME.key"
 [[ -f "$ukey" ]] || error 403 $(i18n nouserekey "$USERNAME")  # really a 404 but do not tell ;)
 SECRET=$(cat $ukey | tr -d "\n")
 base32 -d &>/dev/null <<< "$SECRET" || error 405 $(i18n brokenkey "$USERNAME")
@@ -320,8 +323,15 @@ fi
 if [[ -n "$WHITELISTER" ]]; then
   CTX="whitelist:$WHITELISTER"
   set +e
-  reply=$($WHITELISTER allow "$USERNAME" "$REMOTE_ADDR" 2>&1)
-  errno=$?
+  # Yes, this is dangerous, but the given arguments are safe
+  execstr=$(echo "$WHITELISTER" | sed -e "s/%IP%/$REMOTE_ADDR/" -e "s/%USERNAME%/$USERNAME/")
+  if [[ "$DEBUG" = 'yes' ]]; then
+    reply="WOULD_CALL: $execstr"
+    errno=666
+  else
+    reply=$(eval "$execstr" 2>&1)
+    errno=$?
+  fi
   set -e
   if [[ $errno != 0 ]]; then
     error 501 "$(i18n errwhitelist)<pre>$reply</pre>"
