@@ -34,25 +34,30 @@ Usage: $(basename $0) [-h|--help] [--db DBFILE] ( allow USERID [IP] | deny USERI
 Default DBFILE is "./timed_login.db" in the current directory. It shall be writeable by the caller of this script.
 
 allow USERID [IP]:
-  record provided user name and optional IP address together with the current timestamp
+  Record provided user name and optional IP address together with the current timestamp
+  Note that records without IP will not show up in apache or nginx exports
 
 deny USERID
-  remove provided user name from the records
+  Remove provided user name from the records
 
 exists USERID
-  return positive if user name exists in the record
+  Return positive if user name exists in the record
 
 check USERID [ELAPSED]
-  default ELAPSED value is 3600 seconds.
-  return positive if and only user exists and it was allowed in the last ELAPSED seconds
+  Default ELAPSED value is 3600 seconds.
+  Return positive if and only user exists and it was allowed in the last ELAPSED seconds
 
 export FORMAT [ELAPSED]
-  FORMAT options can be (text|apache2|nginx), default is text.
-  default ELAPSED is 3600 seconds.
-  dump all valid logins, either as text or as a formated file that can be included by Apache2 or NGINX:
-    When FORMAT is text: dumps records as "epoch:ipaddress:username"
-    When FORMAT is Apache2, dumps records as 'Allow from IP', use "<RequireAny>\nInclude thisfile.cfg</RequireAny>\n"
-    When FORMAT is NGINX, dumps records as "allow IP;", use "include thisfile.cfg;\ndeny all;\n"
+  FORMAT options can be (text|apache|nginx), default is text.
+  Default ELAPSED is 3600 seconds.
+  Dump lines of active logins formatted according to FORMAT:
+    text   : EPOCH:IP:USERNAME
+    apache : Allow from IP      # to be used as: <RequireAny> Include thisfile.cfg </RequireAny>
+    nginx  : allow IP;          # to be used as: include thisfile.cfg; deny all;
+
+Note: arguments are consumed iteratively, eg. add two new users and dump the valid ones:
+
+  ./timed_login.sh --db /tmp/logins.db allow bob 12.33.44.55 allow mar:tin export text
 
 EOT
 
@@ -60,43 +65,44 @@ if [[ ! -f "$dbfile" ]]; then
 	touch "$dbfile" 2>/dev/null || fail "Cannot write to $dbfile from $(pwd). Check rights or use --db option."
 fi
 
-action="${1-}"
-if [[ "$action" = "export" ]]; then
-	format=${2-text}
-	maxage=${3-3600}
-	[[ "$maxage" =~ ^[0-9]+$ ]] || fail "expected/malformed max age (seconds)"
-	oldest=$(( $(date +%s) - $maxage ))
-	if [[ "$format" = "text" ]]; then
-		awk 'BEGIN{FS=":";OFS=":";} { if($1>'$oldest') print $0;}' "$dbfile"
-	elif [[ "$format" = "apache2" ]]; then
-		awk 'BEGIN{FS=":";OFS=":";} { if($1>'$oldest') {printf("Allow from %s # @%s via %s\n",$2,$1,$3)}}' "$dbfile" | cut -d: -f3-
-	elif [[ "$format" = "nginx" ]]; then
-		awk 'BEGIN{FS=":";OFS=":";} { if($1>'$oldest') {printf("allow %s; # @%s via %s\n",$2,$1,$3)}}' "$dbfile" | cut -d: -f3-
-	else
-		fail "Unknown export format."
-	fi
-else
-	uid="${2-}"
-	if [[ "$action" = "exists" ]]; then
-		grep -q ":$uid$" "$dbfile" || exit 1
-	elif [[ "$action" = "check" ]]; then
-		maxage=${3-3600}
-		[[ "$maxage" =~ ^[0-9]+$ ]] || fail "expected/malformed max age (seconds)"
-		t=$(grep ":$uid$" "$dbfile" | cut -d: -f1)
-		[[ -z "$t" ]] && t=0  # unknown user
-		(( $t < $(date +%s) - "$maxage" )) && exit 1
-		
-	else
-		if [[ "$action" = "allow" ]]; then
-			ip="${3-}"
-			[[ "$ip" =~ ^[0-9.]*$ ]] || fail "expected/malformed IP"
-			new=$(grep -v ":$uid$" "$dbfile"; echo "$(date +%s):$ip:$uid")
-		elif [[ "$action" = "deny" ]]; then
-			new=$(grep -v ":$uid$" "$dbfile")
-		else
-			fail "Unknown action"
+while [[ $# -gt 0 ]]; do
+
+	action="${1-}"; shift || fail 'Missing argument'
+
+	if [[ "$action" = "export" ]]; then
+		format="text"; [[ ${1-} =~ ^(text|apache|nginx)$ ]] && format="$1" && shift
+		maxage=3600; [[ ${1-} =~ ^[1-9][0-9]*$ ]] && maxage="$1" && shift
+		oldest=$(( $(date +%s) - $maxage ))
+		if [[ "$format" = "text" ]]; then
+			awk 'BEGIN{FS=":";OFS=":";} { if($1>'$oldest') print $0;}' "$dbfile"
+		elif [[ "$format" = "apache" ]]; then
+			awk 'BEGIN{FS=":";OFS=":";} { if($2 && $1>'$oldest') {printf("Allow from %s # @%s via %s\n",$2,$1,$3)}}' "$dbfile" | cut -d: -f3-
+		elif [[ "$format" = "nginx" ]]; then
+			awk 'BEGIN{FS=":";OFS=":";} { if($2 && $1>'$oldest') {printf("allow %s; # @%s via %s\n",$2,$1,$3)}}' "$dbfile" | cut -d: -f3-
 		fi
-		echo "$new" > "$dbfile"
+	else
+		uid="${1-}"
+		shift
+		if [[ "$action" = "exists" ]]; then
+			grep -q ":$uid$" "$dbfile" || exit 1
+		elif [[ "$action" = "check" ]]; then
+			maxage=3600; [[ ${1-} =~ ^[1-9][0-9]*$ ]] && maxage="$1" && shift
+			t=$(grep ":$uid$" "$dbfile" | cut -d: -f1)
+			[[ -z "$t" ]] && t=0  # unknown user
+			(( $t < $(date +%s) - "$maxage" )) && exit 1
+			
+		else
+			if [[ "$action" = "allow" ]]; then
+				ip=''; [[ "${1-}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && ip="$1" && shift
+				new=$(grep -v ":$uid$" "$dbfile"; echo "$(date +%s):$ip:$uid")
+			elif [[ "$action" = "deny" ]]; then
+				new=$(grep -v ":$uid$" "$dbfile")
+			else
+				fail "Bad parameter or unknown action at or around '$action' parameter"
+			fi
+			echo "$new" > "$dbfile"
+		fi
 	fi
-fi
+
+done
 exit 0
