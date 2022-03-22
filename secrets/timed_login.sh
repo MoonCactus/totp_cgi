@@ -4,7 +4,7 @@
 
 set -feu -o pipefail
 
-dbfile="/etc/timed_login"
+dbfile="./timed_login.db"
 if [[ "${1-}" = '--db' ]]; then
 	shift
 	dbfile="$1"
@@ -31,7 +31,7 @@ fail()
 Timestamp-based login handler.
 Usage: $(basename $0) [-h|--help] [--db DBFILE] ( allow USERID [IP] | deny USERID | exists USERID | check USERID [ELAPSED] | export FORMAT [ELAPSED]).
 
-Default DBFILE is /etc/timed_login. It shall be writeable by the caller of this script.
+Default DBFILE is "./timed_login.db" in the current directory. It shall be writeable by the caller of this script.
 
 allow USERID [IP]:
   record provided user name and optional IP address together with the current timestamp
@@ -57,7 +57,7 @@ export FORMAT [ELAPSED]
 EOT
 
 if [[ ! -f "$dbfile" ]]; then
-	touch "$dbfile" 2>/dev/null || fail "Cannot write to $dbfile. Check rights or use --db option."
+	touch "$dbfile" 2>/dev/null || fail "Cannot write to $dbfile from $(pwd). Check rights or use --db option."
 fi
 
 action="${1-}"
