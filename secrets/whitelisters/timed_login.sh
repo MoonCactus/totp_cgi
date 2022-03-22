@@ -56,7 +56,9 @@ export FORMAT [ELAPSED]
 
 EOT
 
-[[ -f "$dbfile" ]] || touch "$dbfile" 2>/dev/null || fail "Cannot write to $dbfile. Check rights or use --db option."
+if [[ ! -f "$dbfile" ]]; then
+	touch "$dbfile" 2>/dev/null || fail "Cannot write to $dbfile. Check rights or use --db option."
+fi
 
 action="${1-}"
 if [[ "$action" = "export" ]]; then

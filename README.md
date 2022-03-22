@@ -58,8 +58,8 @@ www-data ALL=(ALL) NOPASSWD: /usr/local/bin/firewall_allow.sh
 
 Two small utilities are provided as examples:
 
-  * `samples/apache_whitelist.sh` to manage an Apache IP-based allow/deny file to include
-  * `samples/timed_login.sh` to manage a user and time-based login file
+  * `whitelisters/apache_whitelist.sh` to manage an Apache IP-based allow/deny file
+  * `whitelisters/timed_login.sh` to manage a more powerful user and time-based login file
 
 
 #### Post-installation ####
@@ -161,15 +161,15 @@ Install `nginx` and `fcgi`:
 	* `apt-get install nginx fcgiwrap`
 	* `cp /usr/share/doc/fcgiwrap/examples/nginx.conf /etc/nginx/fcgiwrap.conf`
 
-If the script is located in `/home/jeremie/workspace/totp_cgi`, then you
+If the script is located in `/home/toctoc`, then you
 can add a block like this *within* the `/etc/nginx/sites-enabled` target:
 
 ```
-	location /totp_cgi {
+	location /toctoc {
 		gzip off;
 		try_files $uri $uri/;
 		fastcgi_index index.cgi;
-		alias /home/jeremie/workspace/;
+		alias /home/;
 		fastcgi_pass unix:/var/run/fcgiwrap.socket;
 		location ~ /secrets {return 403;}
 		include /etc/nginx/fastcgi_params;
@@ -178,5 +178,8 @@ can add a block like this *within* the `/etc/nginx/sites-enabled` target:
 		fastcgi_param REMOTE_USER      $remote_user;
 	}
 ```
+
+Then add these lines to protect domains or locations:
+
 
 Then restart nginx and open http://your.website.com/totp_cgi/

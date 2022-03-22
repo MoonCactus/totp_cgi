@@ -39,9 +39,9 @@ USERNAME=$(get_config USERNAME '')              # default username when set (eg 
 REVEALTIMEOUT=$(get_config REVEALTIMEOUT 300)   # expriring delay for admin reveal codes (5 minutes). Zero to disable.
 ADMINS=$(get_config ADMINS admin)               # comma-separated list of users who can create other users
 
-# White-listing administrative tool. Write it so it accepts the following arguments: allow <IP> <username> | deny <IP> <username> | reset
+# White-listing administrative tool. Write it so it accepts the following arguments: allow <username> <IP>
 # Warning: this is run without quoting, so that "sudo mytool" really will be executed as sudo. Make sure you take care of whitespaces etc.
-WHITELISTER=$(get_config WHITELISTER "")        # eg. $WORKDIR/secrets/whitelister.sh, will be called with these arguments: 'allow' $REMOTEIP $USERNAME
+WHITELISTER=$(get_config WHITELISTER "")        # eg. $WORKDIR/secrets/whitelister.sh, will be called with these arguments: 'allow' $USERNAME $REMOTEIP
 
 # Generation data
 FQDN=$(get_config FQDN "totp.tecrd.com")        # TOTP property:  fully qualified domain name
@@ -320,7 +320,7 @@ fi
 if [[ -n "$WHITELISTER" ]]; then
   CTX="whitelist:$WHITELISTER"
   set +e
-  reply=$($WHITELISTER allow "$REMOTE_ADDR" "$USERNAME" 2>&1)
+  reply=$($WHITELISTER allow "$USERNAME" "$REMOTE_ADDR" 2>&1)
   errno=$?
   set -e
   if [[ $errno != 0 ]]; then

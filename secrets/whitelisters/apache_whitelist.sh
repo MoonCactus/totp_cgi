@@ -18,7 +18,7 @@ fail()
 	exit 1
 }
 
-[[ $# -eq 0 ]] && fail "Usage: $0 reset | allow <IP> | deny <IP>"
+[[ $# -eq 0 ]] && fail "Usage: $0 reset | allow <USERNAME> <IP> | deny <USERNAME> <IP>"
 
 ACTION="${1-}"
 shift
@@ -27,9 +27,9 @@ if [[ "$ACTION" = "reset" ]]; then
 	echo -n > "$APACHE_INCLUDE"
 	echo "Whitelist reinitialized"
 else
-	IP="${1-}"
+	IP="${2-}"
 	[[ "$IP" =~ ^[0-9.]+$ ]] || fail "expected/malformed IP"
-	cfgline="Allow from $IP"
+	cfgline="Allow from $IP  # ${1-}"
 
 	if [[ "$ACTION" = "allow" ]]; then
 		if grep -q "$cfgline" "$APACHE_INCLUDE"; then
