@@ -326,7 +326,7 @@ if [[ -n "$ALLOWTOOL" ]]; then
   CTX="whitelist:$ALLOWTOOL"
   set +e
   # Yes, this is dangerous, but the given arguments are safe
-  execstr=$(echo "cd %WORKDIR%/secrets; $ALLOWTOOL" | sed -e "s/%WORKDIR%/$WORKDIR/" -e "s/%IP%/$REMOTE_ADDR/" -e "s/%USERNAME%/$USERNAME/")
+  execstr=$(echo "cd %WORKDIR%/secrets && $ALLOWTOOL" | sed -e "s|%WORKDIR%|$WORKDIR|" -e "s|%IP%|$REMOTE_ADDR|" -e "s|%USERNAME%|$USERNAME|")
   CTX="whitelist:$execstr"
   if [[ "$DEBUG" = 'yes' ]]; then
     reply="WOULD_CALL: $execstr"
