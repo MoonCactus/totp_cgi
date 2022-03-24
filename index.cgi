@@ -1,16 +1,13 @@
 #!/bin/bash -feu
+# Self contained TOTP CGI bash script.
 
-# Self-contained TOTP tool. Helps generate and check accounts with help from a CGI-enabled HTTP server.
-# You probably want to set WHITELISTER in (./secrets|/etc)/totp_cgi.conf  so as to do something when
+# This scripts helps generate and check accounts with help from a CGI-enabled HTTP server.
+# You probably want to set ALLOWTOOL in (./secrets|/etc)/totp_cgi.conf  so as to do something when
 # a user successfully authenticates, eg. './secrets/timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./secrets/nginx_allow.conf'
 
-# Eg, if root-owned "nginx_restart.sh" contains "nginx -s reload" and is setuid ("chmod a+s"):
-#   WHITELISTER=./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./nginx_allow.conf && ./nginx_restart.sh
+# Eg, if www is sudoer as "data ALL = (root) NOPASSWD: /usr/sbin/service nginx reload" :
+#   ALLOWTOOL=./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > nginx_allow.conf && sudo /usr/sbin/service nginx reload
 
-set -o pipefail -eE -o functrace
-
-# CGI bash script to check a TOTOP
-#
 # To create a new user you must be within the ADMINS (see /etc/totp_cgi.conf, default is username 'admin'),
 # then you must use this URL to access to the service (even if that's not your name, it will only show an
 # additional field to allow you to create a new user). Or just add it to your your footer.
@@ -19,6 +16,8 @@ set -o pipefail -eE -o functrace
 # Nb: you can create a time-limited, priviledged right to see the current code in clear
 # by eg. "touch [-t 202206011155] secrets/reveal/AddMIN", then get the TOTP code
 # by typing `AddMIN` keyword in the 6-figure code.
+
+set -o pipefail -eE -o functrace
 
 get_config()
 {

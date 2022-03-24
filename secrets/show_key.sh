@@ -1,5 +1,5 @@
 #!/bin/bash -feu
-keyfile=${1-secrets/admin.key}
+keyfile=${1-totp/admin}
 if [[ "$keyfile" =~ (^$|-h$|--help$) ]]; then
 	printf "$(basename $0) username.key\nKeep showing current TOTP key for the given user key file (eg. secrets/admin.key)\n"
 	exit 1

@@ -30,7 +30,7 @@ Administrators are themselves identified by the same protocol.
 You can configure the script either with a local file named `secrets/totp_cgi.conf` or with a 
 system-wide `/etc/totp_cgi.conf`. The following key/value pairs are handled (but remove remarks):
 
-  * WHITELISTER=           # white-listing administrative tool, to be set. Default does nothing.
+  * ALLOWTOOL=             # white-listing administrative tool, to be set. Default does nothing.
   * HTTPS_ONLY=y           # 'y' forbids running without HTTPS
   * USERNAME=              # default username (eg 'guest')
   * REVEALTIMEOUT=300      # expriring delay for revealing codes (5 minutes). Zero to disable.
@@ -41,26 +41,31 @@ system-wide `/etc/totp_cgi.conf`. The following key/value pairs are handled (but
 
 #### White listing #### 
 
-Probably the most important key to set is `WHITELISTER` because it lets you specify the script
+Probably the most important key to set is `ALLOWTOOL` because it lets you specify the script
 that will be called when an authentication is sucessful. The command that the scripts run is:
 
 ```
-$WHITELISTER allow "$REMOTE_ADDR" "$USERNAME"
+$ALLOWTOOL allow "$REMOTE_ADDR" "$USERNAME"
 ```
 
-Please note that it gets run arguably unsafely **without quoting** to make life easier.
-Hence, setting `WHITELISTER=sudo /usr/local/bin/firewall_allow.sh` will work well when
-`www-data` is a sudoer for the respective command :
+It will run from within the `secrets/` directory.
+Please note that it is called arguably unsafely **without quoting** (to make life easier).
 
-```
-www-data ALL=(ALL) NOPASSWD: /usr/local/bin/firewall_allow.sh
-```
+A small "IP white listing" utility is provided as an example:
 
-Two small utilities are provided as examples:
-
-  * `whitelisters/apache_whitelist.sh` to manage an Apache IP-based allow/deny file
   * `whitelisters/timed_login.sh` to manage a more powerful user and time-based login file
 
+For NGINX you can use the following configuration:
+
+```
+ALLOWTOOL=./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > nginx_allow.conf && sudo /usr/sbin/service nginx reload
+```
+
+With, e.g `/etc/sudoers.d/50-totp-whitelist`:
+
+```
+data ALL = (root) NOPASSWD: /usr/sbin/service nginx reload
+```
 
 #### Post-installation ####
 
