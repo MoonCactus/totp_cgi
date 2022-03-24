@@ -2,7 +2,10 @@
 
 # Self-contained TOTP tool. Helps generate and check accounts with help from a CGI-enabled HTTP server.
 # You probably want to set WHITELISTER in (./secrets|/etc)/totp_cgi.conf  so as to do something when
-# a user successfully authenticates, eg. './secrets/timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./secrets/nginx_allow.cfg'
+# a user successfully authenticates, eg. './secrets/timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./secrets/nginx_allow.conf'
+
+# Eg, if root-owned "nginx_restart.sh" contains "nginx -s reload" and is setuid ("chmod a+s"):
+#   WHITELISTER=./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./nginx_allow.conf && ./nginx_restart.sh
 
 set -o pipefail -eE -o functrace
 
@@ -21,7 +24,7 @@ get_config()
 {
   key="$1"
   default="$2"
-  value=$(sed -n "s/\s*$key\s*=\s*//p" "$CONFIGFILE" 2>/dev/null || true)
+  value=$(sed -n "s/^\s*$key\s*=\s*//p" "$CONFIGFILE" 2>/dev/null || true)
   [[ -z "$value" ]] && value="$default"
   echo "$value"
 }
@@ -42,8 +45,7 @@ ADMINS=$(get_config ADMINS admin)               # comma-separated list of users 
 # White-listing administrative tool.
 # Warning: it gets run by "eval" so that, eg. "sudo mytool" really is executed as sudo.
 # Tokens %REMOTEIP% and %USERNAME% are replaced by their (sanitized) values before the call.
-# In the example below, root would also need to watch and run 'nginx -s reload' (eg. here with a "chmod a+s" root-owned nginx_restart.sh script)
-WHITELISTER=$(get_config WHITELISTER "cd $WORKDIR/secrets && ./timed_login.sh allow "%USERNAME%" "%IP%" export nginx > ./nginx_allow.cfg && sudo $WORKDIR/secrets/nginx_restart.sh")
+ALLOWTOOL=$(get_config ALLOWTOOL "")
 DEBUG=$(get_config DEBUG 'no')                  # yes to debug the exact call to the white listing tool
 
 # Generation data
@@ -214,7 +216,7 @@ create_account()
   CSSIMG=$(printf '<img width=%dpx style="image-rendering:pixelated;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
 
   CTX='saveaccount'
-  echo "$SECRET" > "$WORKDIR/secrets/totp/$NEWUSER.key" || error 500 "$(i18n errnewsave $NEWUSER)"
+  echo "$SECRET" > "$WORKDIR/secrets/totp/$NEWUSER" || error 500 "$(i18n errnewsave $NEWUSER)"
 
   CTX='shownewaccount'
   printf "Status: 200 OK\r\n"
@@ -307,7 +309,7 @@ CTX='check'
 
 [[ "$USERCODE" =~ ^[0-9_]{6}$ ]] || error 400 $(i18n illegalcode)
 
-ukey="$WORKDIR/secrets/totp/$USERNAME.key"
+ukey="$WORKDIR/secrets/totp/$USERNAME"
 [[ -f "$ukey" ]] || error 403 $(i18n nouserekey "$USERNAME")  # really a 404 but do not tell ;)
 SECRET=$(cat $ukey | tr -d "\n")
 base32 -d &>/dev/null <<< "$SECRET" || error 405 $(i18n brokenkey "$USERNAME")
@@ -320,11 +322,12 @@ if [[ "$SRVCODE" != "$USERCODE" ]]; then
   show_form $(i18n wrongcode)
 fi
 
-if [[ -n "$WHITELISTER" ]]; then
-  CTX="whitelist:$WHITELISTER"
+if [[ -n "$ALLOWTOOL" ]]; then
+  CTX="whitelist:$ALLOWTOOL"
   set +e
   # Yes, this is dangerous, but the given arguments are safe
-  execstr=$(echo "$WHITELISTER" | sed -e "s/%IP%/$REMOTE_ADDR/" -e "s/%USERNAME%/$USERNAME/")
+  execstr=$(echo "cd %WORKDIR%/secrets; $ALLOWTOOL" | sed -e "s/%WORKDIR%/$WORKDIR/" -e "s/%IP%/$REMOTE_ADDR/" -e "s/%USERNAME%/$USERNAME/")
+  CTX="whitelist:$execstr"
   if [[ "$DEBUG" = 'yes' ]]; then
     reply="WOULD_CALL: $execstr"
     errno=666
@@ -337,8 +340,6 @@ if [[ -n "$WHITELISTER" ]]; then
     error 501 "$(i18n errwhitelist)<pre>$reply</pre>"
   fi
 fi
-
-
 
 
 if [[ "$NEWUSER" ]] && grep -q "$USERNAME" <<< "$ADMINS"; then
