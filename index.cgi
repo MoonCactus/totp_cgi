@@ -363,7 +363,7 @@ cat << 'EOT' &>/dev/null
 
 titlemain     Jeton d'accès requis
 header        <h1 class='header'>Jeton d'accès</h1>
-footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a> / <a href="?admin">admin</a></div>
+footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus/totp_cgi'>totp-cgi</a> / <a href="?admin">admin</a></div>
 
 username      Votre identifiant
 htcode6       Votre code à 6 chiffres<div class='small'>(ou mot-clé spécial)</div>
@@ -405,7 +405,7 @@ newcheck      Puis testez-le <a href='?'>ici</a>.
 
 titlemain     Security token needed
 header        <h1 class='header'>Access token</h1>
-footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus'>totp-cgi</a> / <a href="?admin">admin</a></div>
+footer        <div class='footer'>&copy; <a href='https://github.com/MoonCactus/totp_cgi'>totp-cgi</a> / <a href="?admin">admin</a></div>
 username      Your identifier
 htcode6       Your 6-digit code<div class='small'>(or special keyword)</div>
 submit        Test
