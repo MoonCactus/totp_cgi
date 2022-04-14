@@ -212,7 +212,7 @@ create_account()
   URL="otpauth://totp/${SERVICE}:${NEWUSER}@${FQDN}?secret=${SECRET}&issuer=${SERVICE}"
 
   b64=$(qrencode -s 1 -l H "${URL}" -o - | base64 | tr -d "\n")
-  CSSIMG=$(printf '<img width=%dpx style="image-rendering:pixelated;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
+  CSSIMG=$(printf '<img width=%dpx style="image-rendering:crisp-edges;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
 
   CTX='saveaccount'
   echo "$SECRET" > "$WORKDIR/secrets/totp/$NEWUSER" || error 500 "$(i18n errnewsave $NEWUSER)"
@@ -223,7 +223,7 @@ create_account()
 
   http_head "<title$(i18n newtitle)</title>"
   http_body << EOT
-  $(i18n commontitle)
+  $(i18n createtitle)
   <div class='small'>
     $(i18n goodcode "$REMOTE_ADDR")
   </div>
@@ -385,6 +385,7 @@ errfolders    Installation CGI incomplète (fichiers).
 errtools      Installation CGI incomplète (outils).
 errhttps      L'acces http:// est désactivé, utilisez https:// à la place.
 
+createtitle   Création de compte
 newusername   <div title='Si vous êtes un administrateur'>Créer un nouveau compte (*)</div>
 errnewuser    Nom d'utilisateur cible illegal. N'utiliser que des lettres, chiffres, tiret ou caractère souligné.
 errnewservice SERVICE n'est pas configuré
@@ -425,6 +426,7 @@ errfolders    Incomplete CGI install (folders).
 errtools      Incomplete CGI install (tools).
 errhttps      Acces via http:// is disabled, use https:// instead.
 
+createtitle   Account creation
 newusername   <div title='If you are an administrator'>Create a new account (*)</div>
 errnewuser    Illegal new user name. Use letters, digit, underscore and caret.
 errnewservice Missing SERVICE in configuration.
