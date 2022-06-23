@@ -158,11 +158,11 @@ show_form()
     <div class='hilite'>$@</div>
     <div id='divname'>
       <div>$(i18n username)</div>
-      <input type="text" size="12" minlength="3" maxlength="12" id="username" name="username" value="$USERNAME">
+      <input type="text" autofocus size="12" minlength="3" maxlength="12" id="username" name="username" value="$USERNAME">
     </div>
     <div id='divcode'>
       <div>$(i18n htcode6)</div>
-      <input type="text" autofocus size="6" minlength="6" maxlength="6" id="totpcode" name="totpcode">
+      <input type="text" size="6" minlength="6" maxlength="6" id="totpcode" name="totpcode">
     </div>
     <div class='small light' id='divcreate' $csscreate>
       <div>$(i18n newusername)</div>
