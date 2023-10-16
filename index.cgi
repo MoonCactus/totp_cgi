@@ -211,7 +211,7 @@ create_account()
   SECRET=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10 | base32 || true)
   URL="otpauth://totp/${SERVICE}:${NEWUSER}@${FQDN}?secret=${SECRET}&issuer=${SERVICE}"
 
-  b64=$(qrencode -s 1 -l H "${URL}" -o - | base64 | tr -d "\n")
+  b64=$(qrencode -s 7 -l H "${URL}" -o - | base64 | tr -d "\n")
   CSSIMG=$(printf '<img width=%dpx style="image-rendering:crisp-edges;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
 
   CTX='saveaccount'
