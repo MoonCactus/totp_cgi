@@ -212,7 +212,7 @@ create_account()
   URL="otpauth://totp/${SERVICE}:${NEWUSER}@${FQDN}?secret=${SECRET}&issuer=${SERVICE}"
 
   b64=$(qrencode -s 7 -l H "${URL}" -o - | base64 | tr -d "\n")
-  CSSIMG=$(printf '<img width=%dpx style="image-rendering:crisp-edges;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
+  CSSIMG=$(printf '<img width=%dpx style="image-rendering:pixelated;" src="data:image/png;base64,%s" title="%s">\n' $((57*5)) "$b64" "totp_qrcode_${NEWUSER}.png")
 
   CTX='saveaccount'
   echo "$SECRET" > "$WORKDIR/secrets/totp/$NEWUSER" || error 500 "$(i18n errnewsave $NEWUSER)"
