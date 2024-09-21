@@ -72,7 +72,8 @@ $ALLOWTOOL allow "$REMOTE_ADDR" "$USERNAME"
 ```
 
 It will run from within the `secrets/` directory.
-Please note that it is called arguably unsafely **without quoting** (to make life easier).
+Please note that it is called arguably unsafely **without quoting** (to make life easier). I dare to say
+so only because safe usernames are enforced before the call (they must match `^[A-Za-z0-9_]+$`).
 
 A small "IP white listing" utility is provided as an example:
 
