@@ -242,6 +242,28 @@ create_account()
   </div>
 
   <div id="footer">$(i18n footer)</div>
+  <script>
+    function setCookie(cname, cvalue) {
+      const d = new Date();
+      d.setTime(d.getTime() + (365 * 24*60*60*1000));
+      let expires = "expires="+ d.toUTCString();
+      document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/;SameSite=Strict;Secure";
+    }
+    function getCookie(cname) {
+      let name = cname + "=";
+      let decodedCookie = decodeURIComponent(document.cookie);
+      let ca = decodedCookie.split(';');
+      for(let i = 0; i <ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1);
+        if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+      }
+      return '';
+    }
+    document.getElementById('username').addEventListener('change', function() {setCookie('username',document.getElementById('username').value)});
+    let un= getCookie('username'); if(un.length>0) { document.getElementById('username').value= un; document.getElementById('totpcode').focus(); }
+</script>
+
 EOT
   http_tail
   trap '' EXIT
